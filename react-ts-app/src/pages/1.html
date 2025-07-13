@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EXIF 信息读取</title>
+    <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.0/piexif.js"></script>
+</head>
+<body>
+    <input type="file" id="imageInput" accept="image/*">
+    <div id="exifInfo"></div>
+    
+    <script>
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const exifData = piexif.load(e.target.result);
+                    const infoDiv = document.getElementById('exifInfo');
+                    
+                    // 获取基本信息
+                    const make = exifData["0th"][piexif.ImageIFD.Make] || "未知";
+                    const model = exifData["0th"][piexif.ImageIFD.Model] || "未知";
+                    const serialNumber = exifData["Exif"][piexif.ExifIFD.BodySerialNumber] || "未知";
+                    
+                    // 尝试获取快门次数
+                    let shutterCount = "未知";
+                    if (exifData["Exif"][piexif.ExifIFD.MakerNote]) {
+                        const makerNote = exifData["Exif"][piexif.ExifIFD.MakerNote];
+                        // 简单尝试匹配数字（实际应用中需要更精确的解析）
+                        const match = makerNote.toString().match(/ShutterCount\s*=\s*(\d+)|Shutter\s*Count\s*=\s*(\d+)/i);
+                        if (match) {
+                            shutterCount = match[1] || match[2];
+                        }
+                    }
+                    
+                    // 计算有效像素
+                    const pixelX = exifData["Exif"][piexif.ExifIFD.PixelXDimension] || 0;
+                    const pixelY = exifData["Exif"][piexif.ExifIFD.PixelYDimension] || 0;
+                    const effectivePixels = pixelX && pixelY 
+                        ? Math.round((pixelX * pixelY) / 1000000 * 10) / 10 + " MP" 
+                        : "未知";
+                    
+                    // 显示结果
+                    infoDiv.innerHTML = `
+                        <p><strong>制造商:</strong> ${make}</p>
+                        <p><strong>机型:</strong> ${model}</p>
+                        <p><strong>快门次数:</strong> ${shutterCount}</p>
+                        <p><strong>有效像素:</strong> ${effectivePixels}</p>
+                        <p><strong>序列号:</strong> ${serialNumber}</p>
+                    `;
+                    
+                } catch (error) {
+                    console.error("解析 EXIF 数据时出错:", error);
+                    document.getElementById('exifInfo').innerHTML = "<p>无法读取 EXIF 数据</p>";
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    </script>
+</body>
+</html>

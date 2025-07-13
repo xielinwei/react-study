@@ -1,0 +1,259 @@
+---
+description: 
+globs: *.js,*.ts,*.jsx,*.tsx,*.vue
+alwaysApply: false
+---
+# 前端代码圈复杂度质量规则
+
+## 1. 规则概述
+
+为确保代码质量和可维护性，制定以下圈复杂度相关规则，所有前端项目必须严格遵守。
+
+## 2. 圈复杂度标准
+
+### 2.1 单函数复杂度要求
+- **硬性要求**: 单个函数的圈复杂度必须 **< 15**
+- **推荐标准**: 单个函数的圈复杂度应 **< 10**
+
+### 2.2 嵌套函数复杂度要求
+对于包含嵌套函数的代码块，复杂度计算规则：
+
+```
+嵌套复杂度比例 = (主函数复杂度 + 所有子函数复杂度) / (主函数代码行数 + 所有子函数代码行数)
+```
+
+- **硬性要求**: 嵌套复杂度比例必须 **< 25%**
+- **推荐标准**: 嵌套复杂度比例应 **< 20%**
+
+## 4. 优化策略
+
+### 4.1 使用解构赋值
+
+**❌ 不推荐 (复杂度高):**
+```javascript
+function processUser(user) {
+  if (user && user.profile && user.profile.settings && user.profile.settings.theme) {
+    if (user.profile.settings.theme === 'dark') {
+      // dark theme logic
+    } else if (user.profile.settings.theme === 'light') {
+      // light theme logic
+    } else {
+      // default theme logic
+    }
+  }
+}
+```
+
+**✅ 推荐 (复杂度低):**
+```javascript
+function processUser(user) {
+  const { theme = 'default' } = user?.profile?.settings || {};
+  
+  const themeHandlers = {
+    dark: () => handleDarkTheme(),
+    light: () => handleLightTheme(),
+    default: () => handleDefaultTheme()
+  };
+  
+  themeHandlers[theme]?.();
+}
+```
+
+### 4.2 使用可选链操作符
+
+**❌ 不推荐:**
+```javascript
+function getUserAddress(user) {
+  if (user && user.profile && user.profile.address) {
+    if (user.profile.address.city && user.profile.address.street) {
+      return `${user.profile.address.city}, ${user.profile.address.street}`;
+    }
+  }
+  return 'Address not available';
+}
+```
+
+**✅ 推荐:**
+```javascript
+function getUserAddress(user) {
+  const { city, street } = user?.profile?.address || {};
+  return (city && street) ? `${city}, ${street}` : 'Address not available';
+}
+```
+
+### 4.3 使用数组遍历替代 if-else
+
+**❌ 不推荐:**
+```javascript
+function validateForm(data) {
+  let errors = [];
+  
+  if (!data.name) {
+    errors.push('Name is required');
+  }
+  if (!data.email) {
+    errors.push('Email is required');
+  }
+  if (!data.phone) {
+    errors.push('Phone is required');
+  }
+  if (data.age && data.age < 18) {
+    errors.push('Age must be at least 18');
+  }
+  
+  return errors;
+}
+```
+
+**✅ 推荐:**
+```javascript
+function validateForm(data) {
+  const validationRules = [
+    { field: 'name', required: true, message: 'Name is required' },
+    { field: 'email', required: true, message: 'Email is required' },
+    { field: 'phone', required: true, message: 'Phone is required' },
+    { field: 'age', validator: (value) => !value || value >= 18, message: 'Age must be at least 18' }
+  ];
+  
+  return validationRules
+    .filter(rule => {
+      const value = data[rule.field];
+      return rule.required ? !value : rule.validator ? !rule.validator(value) : false;
+    })
+    .map(rule => rule.message);
+}
+```
+
+### 4.4 函数拆分
+
+**❌ 不推荐 (单个函数过于复杂):**
+```javascript
+function processOrder(order) {
+  // 验证订单 (复杂度 +3)
+  if (!order.id || !order.items || order.items.length === 0) {
+    throw new Error('Invalid order');
+  }
+  
+  // 计算总价 (复杂度 +4)
+  let total = 0;
+  for (let item of order.items) {
+    if (item.discount) {
+      total += item.price * item.quantity * (1 - item.discount);
+    } else {
+      total += item.price * item.quantity;
+    }
+  }
+  
+  // 应用优惠券 (复杂度 +3)
+  if (order.coupon) {
+    if (order.coupon.type === 'percentage') {
+      total *= (1 - order.coupon.value);
+    } else if (order.coupon.type === 'fixed') {
+      total -= order.coupon.value;
+    }
+  }
+  
+  return { ...order, total };
+}
+```
+
+**✅ 推荐 (函数拆分):**
+```javascript
+// 验证函数 (复杂度 2)
+function validateOrder(order) {
+  if (!order.id || !order.items || order.items.length === 0) {
+    throw new Error('Invalid order');
+  }
+}
+
+// 计算商品总价 (复杂度 2)
+function calculateItemsTotal(items) {
+  return items.reduce((total, item) => {
+    const itemPrice = item.price * item.quantity;
+    return total + (item.discount ? itemPrice * (1 - item.discount) : itemPrice);
+  }, 0);
+}
+
+// 应用优惠券 (复杂度 3)
+function applyCoupon(total, coupon) {
+  if (!coupon) return total;
+  
+  const couponHandlers = {
+    percentage: (total, value) => total * (1 - value),
+    fixed: (total, value) => total - value
+  };
+  
+  return couponHandlers[coupon.type]?.(total, coupon.value) || total;
+}
+
+// 主函数 (复杂度 1)
+function processOrder(order) {
+  validateOrder(order);
+  const itemsTotal = calculateItemsTotal(order.items);
+  const total = applyCoupon(itemsTotal, order.coupon);
+  return { ...order, total };
+}
+```
+
+### 4.5 策略模式
+
+**❌ 不推荐:**
+```javascript
+function calculateDiscount(userType, amount) {
+  if (userType === 'vip') {
+    if (amount > 1000) {
+      return amount * 0.8;
+    } else {
+      return amount * 0.9;
+    }
+  } else if (userType === 'regular') {
+    if (amount > 500) {
+      return amount * 0.95;
+    } else {
+      return amount;
+    }
+  } else if (userType === 'new') {
+    return amount * 0.85;
+  }
+  return amount;
+}
+```
+
+**✅ 推荐:**
+```javascript
+const discountStrategies = {
+  vip: (amount) => amount > 1000 ? amount * 0.8 : amount * 0.9,
+  regular: (amount) => amount > 500 ? amount * 0.95 : amount,
+  new: (amount) => amount * 0.85
+};
+
+function calculateDiscount(userType, amount) {
+  const strategy = discountStrategies[userType];
+  return strategy ? strategy(amount) : amount;
+}
+```
+
+## 5. 代码审查检查点
+
+### 5.1 人工审查要点
+- [ ] 函数是否职责单一
+- [ ] 是否存在深层嵌套 (>4层)
+- [ ] 是否有过长的 if-else 链
+- [ ] 是否可以使用查找表替代条件判断
+- [ ] 是否可以提取公共逻辑
+
+## 7. 违规处理
+
+### 7.1 告警级别
+- **警告**: 复杂度 10-14，嵌套复杂度 20%-24%
+- **错误**: 复杂度 ≥15，嵌套复杂度 ≥25%
+
+### 7.2 处理流程
+1. 自动检测发现问题
+2. 开发者必须在提交前修复
+3. Code Review 时重点关注
+4. 无法立即修复的，必须创建技术债务 Issue
+
+---
+
+**注意**: 此规则为强制要求，所有新代码必须遵守。已有代码逐步重构，优先级按业务重要性和修改频率确定。 

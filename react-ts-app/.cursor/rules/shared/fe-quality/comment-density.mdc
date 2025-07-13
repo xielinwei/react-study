@@ -1,0 +1,183 @@
+---
+description: 
+globs: *.js,*.ts,*.jsx,*.tsx,*.vue
+alwaysApply: false
+---
+# 代码注释密度规则
+
+## 🎯 注释标准
+
+### 📊 核心要求
+- **注释密度：> 10%**
+- **计算方式：注释行数 / 逻辑行数**
+- **适用文件：js/jsx/ts/tsx/vue**
+- **Vue文件说明：逻辑行数 = template + script 的逻辑行数之和**
+
+### 🎯 质量目标
+- 保证代码的可读性和可维护性
+- 提升团队协作效率
+- 降低代码理解成本
+
+## 📝 注释规范
+
+### ✅ 核心规范
+
+1. **复杂业务逻辑必须添加注释说明**
+   - 业务规则、算法逻辑、特殊处理必须注释
+   - 说明业务背景和处理原因
+
+2. **函数/方法添加 JSDoc 注释**
+   - 所有公共函数必须有完整的JSDoc文档
+   - 包含参数、返回值、功能描述
+
+3. **注释应说明"为什么这么做"，而非"做了什么"**
+   - 重点解释设计思路、业务原因、技术选型
+   - 避免简单重复代码逻辑
+
+4. **避免显而易见的无意义注释**
+   - 不要为简单的赋值、调用添加注释
+   - 变量名已经清晰表达含义的不需要额外注释
+
+## 🔍 注释示例
+
+### ✅ 良好注释示例
+
+#### JavaScript函数注释
+```javascript
+/**
+ * 计算用户会员折扣
+ * 业务规则：VIP用户在生日月享受额外5%折扣，但总折扣不超过30%
+ * @param {Object} user - 用户信息
+ * @param {string} user.memberLevel - 会员等级：normal/vip/svip
+ * @param {string} user.birthday - 生日日期 YYYY-MM-DD
+ * @param {number} originalPrice - 原价
+ * @returns {Object} 折扣信息包含最终价格和折扣说明
+ */
+function calculateMemberDiscount(user, originalPrice) {
+  // 基础会员折扣：VIP 8折，SVIP 7折
+  let discount = user.memberLevel === 'vip' ? 0.8 : 
+                 user.memberLevel === 'svip' ? 0.7 : 1.0;
+  
+  // 生日月特殊优惠：额外5%折扣（业务需求，提升用户粘性）
+  const currentMonth = new Date().getMonth() + 1;
+  const birthMonth = new Date(user.birthday).getMonth() + 1;
+  
+  if (user.memberLevel !== 'normal' && currentMonth === birthMonth) {
+    discount = Math.max(discount - 0.05, 0.7); // 最低7折保护利润
+  }
+  
+  const finalPrice = originalPrice * discount;
+  
+  return {
+    finalPrice,
+    discountRate: (1 - discount) * 100,
+    reason: currentMonth === birthMonth ? '会员折扣+生日优惠' : '会员折扣'
+  };
+}
+```
+
+#### Vue组件注释
+```vue
+<template>
+  <!-- 用户个人资料页面：支持查看和编辑用户信息 -->
+  <div class="user-profile-page">
+    <!-- 顶部导航栏：包含返回和保存功能 -->
+    <z-nav-bar title="个人资料" left-arrow @click-left="handleBack">
+      <template #right>
+        <!-- 保存按钮：仅在信息变更时显示 -->
+        <z-button v-if="hasChanges" type="text" @click="saveProfile">
+          保存
+        </z-button>
+      </template>
+    </z-nav-bar>
+
+    <!-- 用户信息表单：支持姓名、邮箱、手机等基本信息编辑 -->
+    <z-form ref="profileForm" @submit="submitProfile">
+      <z-field
+        v-model="userProfile.realName"
+        label="真实姓名"
+        placeholder="请输入真实姓名"
+        required
+        :rules="nameRules"
+      />
+    </z-form>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'UserProfilePage',
+  
+  data() {
+    return {
+      userProfile: { /* ... */ },
+      originalProfile: {}, // 原始数据：用于检测是否有变更
+      loading: false, // 保存状态：防止重复提交
+    };
+  },
+  
+  computed: {
+    /**
+     * 检测用户信息是否有变更
+     * 用于控制保存按钮显示和提示用户未保存的变更
+     */
+    hasChanges() {
+      return JSON.stringify(this.userProfile) !== JSON.stringify(this.originalProfile);
+    }
+  },
+  
+  methods: {
+    /**
+     * 保存用户资料
+     * 验证表单数据并提交到服务器，成功后更新本地缓存
+     */
+    async saveProfile() {
+      try {
+        // 表单验证：确保数据格式正确
+        await this.$refs.profileForm.validate();
+        
+        // 提交更新：仅提交变更的字段
+        const changedFields = this.getChangedFields();
+        await this.$api.updateUserProfile(changedFields);
+        
+        // 更新成功：同步本地数据和缓存
+        this.originalProfile = JSON.parse(JSON.stringify(this.userProfile));
+        this.$toast.success('保存成功');
+        
+      } catch (error) {
+        this.$toast.fail('保存失败：' + error.message);
+      }
+    }
+  }
+};
+</script>
+```
+
+### ❌ 避免的注释反例
+
+```javascript
+// ❌ 显而易见的无意义注释
+let count = 0; // 声明变量count
+user.name = 'John'; // 设置用户名为John
+
+// ❌ 重复描述代码功能，没有说明原因
+function getUserById(id) { // 根据ID获取用户
+  return api.get(`/users/${id}`); // 调用API获取用户数据
+}
+
+// ❌ 只说做了什么，不说为什么
+// 格式化价格
+function formatPrice(price) {
+  return price.toLocaleString(); 
+}
+```
+
+## ✅ 代码生成自检清单
+
+生成代码时必须确保：
+- [ ] 所有公共函数都有完整的JSDoc注释
+- [ ] 复杂业务逻辑都有"为什么"的说明注释
+- [ ] Vue模板的关键区域都有功能说明注释
+- [ ] 避免了显而易见的无意义注释
+- [ ] 注释密度达到10%以上
+- [ ] 注释内容简洁明确

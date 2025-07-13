@@ -1,0 +1,237 @@
+---
+description: 强制TypeScript严格模式和类型定义的最佳实践
+globs: *ts,.tsx
+alwaysApply: false
+---
+
+# TypeScript 规则
+
+## 类型系统规范
+
+### 类型定义优先级
+- **接口 (interface)**: 用于对象结构定义、类实现、声明合并
+- **类型别名 (type)**: 用于联合类型、交叉类型、映射类型、条件类型
+- **枚举 (enum)**: 用于常量集合，优先使用 const enum
+
+```typescript
+// 推荐：对象结构使用接口
+interface User {
+  id: number
+  name: string
+  email?: string
+}
+
+// 推荐：联合类型使用 type
+type Status = 'pending' | 'success' | 'error'
+
+// 推荐：常量枚举
+const enum Color {
+  Red = 'red',
+  Green = 'green',
+  Blue = 'blue'
+}
+```
+
+### 类型安全
+- **禁止使用 `any`**: 使用 `unknown`、`object` 或具体类型
+- **启用严格模式**: `strict: true`，包含所有严格检查
+- **空值检查**: 使用可选链 `?.` 和空值合并 `??`
+- **类型断言**: 优先使用 `as` 语法，避免 `<>` 语法
+
+```typescript
+// 避免
+function process(data: any) {
+  return data.someProperty
+}
+
+// 推荐
+function process<T extends Record<string, unknown>>(data: T): T[keyof T] {
+  return data[Object.keys(data)[0]]
+}
+```
+
+### 泛型使用
+- 泛型参数使用有意义的名称，避免单字母（除非是通用场景）
+- 为泛型添加约束，提高类型安全性
+- 使用默认泛型参数简化调用
+
+```typescript
+// 推荐：有意义的泛型名称和约束
+interface ApiResponse<TData extends Record<string, unknown> = Record<string, unknown>> {
+  data: TData
+  status: number
+  message: string
+}
+```
+
+## 命名约定详细规范
+
+### 接口和类型
+```typescript
+// 接口使用 I 前缀 + PascalCase
+interface IUserService {
+  getUser(id: number): Promise<IUser>
+}
+
+// 类型别名使用 PascalCase
+type UserStatus = 'active' | 'inactive' | 'pending'
+
+// 泛型参数使用有意义的名称
+interface IRepository<TEntity, TKey = string> {
+  findById(id: TKey): Promise<TEntity | null>
+}
+```
+
+### 枚举和常量
+```typescript
+// 枚举使用 PascalCase
+enum HttpStatus {
+  Ok = 200,
+  NotFound = 404,
+  InternalServerError = 500
+}
+
+// 常量使用 UPPER_CASE
+const API_BASE_URL = 'https://api.example.com'
+const MAX_RETRY_COUNT = 3
+```
+
+### 函数和变量
+```typescript
+// 函数使用 camelCase，明确返回类型
+function calculateTotalPrice(items: ICartItem[]): number {
+  return items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+}
+
+// 异步函数明确返回 Promise 类型
+async function fetchUserData(userId: number): Promise<IUser> {
+  const response = await fetch(`/api/users/${userId}`)
+  return response.json()
+}
+```
+
+## 最佳实践
+
+### 1. 类型守卫和类型谓词
+```typescript
+// 使用类型守卫确保类型安全
+function isString(value: unknown): value is string {
+  return typeof value === 'string'
+}
+
+function processValue(value: unknown): string {
+  if (isString(value)) {
+    return value.toUpperCase() // TypeScript 知道这里 value 是 string
+  }
+  return String(value)
+}
+```
+
+### 2. 工具类型的使用
+```typescript
+// 善用内置工具类型
+interface IUser {
+  id: number
+  name: string
+  email: string
+  password: string
+}
+
+// 创建用户时排除 id
+type CreateUserRequest = Omit<IUser, 'id'>
+
+// 更新用户时所有字段可选
+type UpdateUserRequest = Partial<Pick<IUser, 'name' | 'email'>>
+
+// 公开用户信息排除敏感字段
+type PublicUser = Omit<IUser, 'password'>
+```
+
+### 3. 条件类型和映射类型
+```typescript
+// 使用条件类型增强类型表达能力
+type ApiResponse<T> = T extends string 
+  ? { message: T }
+  : { data: T }
+
+// 映射类型创建相关类型
+type Optional<T> = {
+  [K in keyof T]?: T[K]
+}
+```
+
+### 4. 模块声明和命名空间
+```typescript
+// 为第三方库添加类型声明
+declare module 'some-library' {
+  export interface SomeLibraryOptions {
+    apiKey: string
+    timeout?: number
+  }
+  
+  export function initialize(options: SomeLibraryOptions): void
+}
+```
+
+## 性能优化建议
+
+### 1. 类型导入优化
+```typescript
+// 使用 type-only 导入
+import type { IUser, IUserService } from './types'
+import { UserService } from './services'
+
+// 按需导入类型
+import type { ComponentProps } from 'react'
+```
+
+### 2. 编译优化
+- 使用 `skipLibCheck: true` 跳过库文件类型检查
+- 启用 `incremental: true` 增量编译
+- 合理配置 `include` 和 `exclude`
+
+### 3. 类型复用
+```typescript
+// 提取公共类型到单独文件
+// types/common.ts
+export interface IBaseEntity {
+  id: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface IPaginationParams {
+  page: number
+  pageSize: number
+}
+
+export interface IPaginatedResponse<T> {
+  data: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+```
+
+## 团队协作规范
+
+### 1. 类型文档化
+- 为复杂类型添加 JSDoc 注释
+- 使用 `@example` 标签提供使用示例
+- 标注 `@deprecated` 废弃的类型
+
+### 2. 版本兼容性
+- 使用 `@ts-expect-error` 而非 `@ts-ignore`
+- 为向后兼容添加适当的类型重载
+- 渐进式类型迁移策略
+
+### 3. 代码审查要点
+- 检查是否有 `any` 类型泄露
+- 确认异步函数的错误处理
+- 验证泛型约束的合理性
+- 检查类型导入的必要性
+
+## 使用建议
+1. 遵循项目既定的代码风格
+2. 保持代码的可读性和一致性
+3. 在团队协作时注意遵循这些规则 

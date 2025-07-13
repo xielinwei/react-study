@@ -1,0 +1,306 @@
+---
+description: 
+globs: "*.js,*.ts,*.jsx,*.tsx,*.vue,*.css,*.scss"
+alwaysApply: false
+---
+# 🔄 代码复用优先原则
+
+## 核心思想
+**在写任何代码之前，先问：项目中是否已有类似实现？能否复用或扩展现有代码？**
+
+> **技术栈适配**：本规则针对移动端（Vue 2.7）、后台管理（React + Umi + Antd）、服务端（Egg）进行优化
+
+## 🎯 技术栈检查清单
+
+### 📱 移动端 Vue 2.7 项目
+#### 写新组件前
+- [ ] **ZZ-UI 组件库**：是否有对应的 `@zz-common/zz-ui` 组件？
+- [ ] **业务组件**：`src/components/` 下是否已有相似组件？
+- [ ] **页面组件**：`src/views/` 中是否有可复用的页面结构？
+- [ ] **Composition API**：是否可以通过 Vue 2.7 的 composition API 复用逻辑？
+
+#### 写新逻辑前
+- [ ] **工具函数**：`src/utils/` 目录下是否已有相似工具？
+- [ ] **ZZ工具包**：`@zz-common/zz-utils` 中是否有现成方法？
+- [ ] **状态管理**：Vuex store 中是否已有相关状态和 actions？
+- [ ] **组合式函数**：`src/composables/` 下是否有可复用逻辑？
+
+#### 写新样式前
+- [ ] **Sass变量**：`@zz/sasscore` 中是否有对应的变量和 mixin？
+- [ ] **组件样式**：ZZ-UI 组件是否提供足够的样式定制？
+- [ ] **移动端适配**：是否复用现有的 rem 适配方案？
+
+### 🖥️ 后台管理 React + Umi + Antd 项目
+#### 写新组件前
+- [ ] **Antd 组件**：Antd 组件库是否有对应组件？
+- [ ] **业务组件**：`src/components/` 下是否已有相似业务组件？
+- [ ] **页面模板**：`src/pages/` 中是否有可复用的页面结构？
+- [ ] **ProComponents**：是否可以使用 `@ant-design/pro-components`？
+
+#### 写新逻辑前
+- [ ] **工具函数**：`src/utils/` 目录下是否已有相似工具？
+- [ ] **Hooks**：`src/hooks/` 下是否有可复用的自定义 hooks？
+- [ ] **数据流**：Umi 的 model 中是否已有相关数据管理？
+- [ ] **路由配置**：Umi 路由配置是否可以复用？
+
+#### 写新样式前
+- [ ] **Antd 主题**：是否可以通过 Antd 主题定制实现？
+- [ ] **CSS Modules**：是否复用现有的样式模块？
+- [ ] **Less 变量**：是否使用 Antd 的 Less 变量系统？
+
+### 🚀 服务端 Egg 项目
+#### 写新接口前
+- [ ] **基础控制器**：`app/controller/` 下是否有可继承的基础控制器？
+- [ ] **中间件**：`app/middleware/` 中是否有可复用的中间件？
+- [ ] **插件**：`app/extend/` 中是否有可复用的扩展方法？
+- [ ] **配置**：`config/` 中是否有可复用的配置模板？
+
+#### 写新服务前
+- [ ] **基础服务**：`app/service/` 下是否有可继承的基础服务类？
+- [ ] **数据库操作**：是否复用现有的 Model 和查询方法？
+- [ ] **第三方集成**：是否有现成的第三方服务封装？
+
+## ⚡ 技术栈专用行动指南
+
+### 📱 Vue 2.7 移动端复用示例
+
+#### ZZ-UI 组件优先
+```vue
+<!-- ❌ 避免：重复实现基础组件 -->
+<div class="custom-button" @click="handleClick">
+  <span class="button-text">提交</span>
+</div>
+
+<!-- ✅ 推荐：使用 ZZ-UI 组件 -->
+<z-button type="primary" @click="handleClick">提交</z-button>
+```
+
+#### Composition API 逻辑复用
+```vue
+<!-- ❌ 避免：在每个组件中重复相同逻辑 -->
+<script>
+export default {
+  data() {
+    return {
+      loading: false,
+      list: []
+    }
+  },
+  async mounted() {
+    this.loading = true
+    this.list = await this.fetchData()
+    this.loading = false
+  }
+}
+</script>
+
+<!-- ✅ 推荐：使用可复用的 composable -->
+<script>
+import { useAsyncData } from '@/composables/useAsyncData'
+
+export default {
+  setup() {
+    const { data: list, loading } = useAsyncData(() => fetchData())
+    return { list, loading }
+  }
+}
+</script>
+```
+
+### 🖥️ React + Umi + Antd 复用示例
+
+#### 表格组件复用
+```tsx
+// ❌ 避免：为每个表格重复实现相同功能
+const UserList = () => {
+  const [loading, setLoading] = useState(false)
+  const [dataSource, setDataSource] = useState([])
+  // 重复的分页、搜索、排序逻辑...
+}
+
+// ✅ 推荐：使用 ProTable 组件
+import { ProTable } from '@ant-design/pro-components'
+
+const UserList = () => {
+  return (
+    <ProTable
+      request={fetchUsers}
+      columns={userColumns}
+      rowKey="id"
+      search={{ labelWidth: 'auto' }}
+      pagination={{ defaultPageSize: 10 }}
+    />
+  )
+}
+```
+
+#### 自定义 Hooks 复用
+```tsx
+// ❌ 避免：在多个组件中重复相同的状态逻辑
+const OrderPage = () => {
+  const [visible, setVisible] = useState(false)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  
+  const handleOk = async () => {
+    setConfirmLoading(true)
+    await someAsyncOperation()
+    setConfirmLoading(false)
+    setVisible(false)
+  }
+}
+
+// ✅ 推荐：抽取为自定义 Hook
+const useModal = () => {
+  const [visible, setVisible] = useState(false)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  
+  const handleOk = async (asyncFn) => {
+    setConfirmLoading(true)
+    await asyncFn()
+    setConfirmLoading(false)
+    setVisible(false)
+  }
+  
+  return { visible, setVisible, confirmLoading, handleOk }
+}
+```
+
+### 🚀 Egg 服务端复用示例
+
+#### 基础控制器继承
+```javascript
+// ❌ 避免：在每个控制器中重复相同的错误处理
+class UserController extends Controller {
+  async create() {
+    try {
+      const result = await this.service.user.create(this.ctx.request.body)
+      this.ctx.body = { success: true, data: result }
+    } catch (error) {
+      this.ctx.status = 500
+      this.ctx.body = { success: false, message: error.message }
+    }
+  }
+}
+
+// ✅ 推荐：继承基础控制器
+class BaseController extends Controller {
+  async handleRequest(serviceFn) {
+    try {
+      const result = await serviceFn()
+      this.ctx.body = { success: true, data: result }
+    } catch (error) {
+      this.ctx.status = 500
+      this.ctx.body = { success: false, message: error.message }
+    }
+  }
+}
+
+class UserController extends BaseController {
+  async create() {
+    await this.handleRequest(() => 
+      this.service.user.create(this.ctx.request.body)
+    )
+  }
+}
+```
+
+#### 中间件复用
+```javascript
+// ❌ 避免：在多个路由中重复相同的验证逻辑
+router.post('/user', async (ctx, next) => {
+  if (!ctx.request.body.token) {
+    ctx.status = 401
+    return
+  }
+  // 验证 token...
+  await next()
+})
+
+// ✅ 推荐：使用可复用的中间件
+// app/middleware/auth.js
+module.exports = () => {
+  return async function auth(ctx, next) {
+    if (!ctx.request.body.token) {
+      ctx.status = 401
+      return
+    }
+    // 验证 token...
+    await next()
+  }
+}
+
+// 路由中使用
+router.post('/user', app.middleware.auth(), userController.create)
+```
+
+## 🛠 项目现有资源优先级
+
+### 移动端 Vue 2.7 项目
+1. **@zz-common/zz-ui** - 基础 UI 组件库
+2. **@zz-common/zz-utils** - 通用工具函数
+3. **@zz/sasscore** - 样式变量和 mixin
+4. **项目内 composables/** - 可复用的组合式函数
+5. **项目内 components/** - 业务组件
+
+### 后台管理 React + Umi + Antd 项目
+1. **Antd** - 基础 UI 组件库
+2. **@ant-design/pro-components** - 高级业务组件
+3. **Umi 插件生态** - 路由、数据流、构建等
+4. **项目内 hooks/** - 自定义 React Hooks
+5. **项目内 components/** - 业务组件
+
+### 服务端 Egg 项目
+1. **Egg 内置插件** - 安全、Session、CORS 等
+2. **Egg 社区插件** - 数据库、缓存、消息队列等
+3. **项目内 extend/** - 扩展方法
+4. **项目内 middleware/** - 中间件
+5. **项目内 service/** - 业务服务层
+
+## 📋 代码生成原则
+
+### 通用原则
+1. **复用优于重写** - 扩展现有代码而不是重新实现
+2. **抽象适度** - 只在确实需要复用时才抽象
+3. **配置化** - 通过参数让一个组件/函数支持多种场景
+4. **渐进式** - 先实现具体功能，有重复时再抽象
+
+### 技术栈特定原则
+
+#### Vue 2.7 移动端
+- 优先使用 ZZ-UI，其次考虑自定义组件
+- 使用 Composition API 提取可复用逻辑
+- 样式优先使用 Sass 变量和 mixin
+
+#### React + Umi + Antd 后台
+- 优先使用 Antd 和 ProComponents
+- 通过自定义 Hooks 复用状态逻辑
+- 利用 Umi 的约定式路由和数据流
+
+#### Egg 服务端
+- 通过继承和中间件模式复用代码
+- 使用 Egg 的插件机制扩展功能
+- 利用 TypeScript 增强代码复用性
+
+---
+
+**记住：最好的代码是不用写的代码。优先复用，避免重复造轮子！** 🎯 
+
+## 🔍 快速检查命令
+
+### 搜索现有实现
+```bash
+# 搜索相似组件（Vue）
+find src/components -name "*.vue" | xargs grep -l "相关关键词"
+
+# 搜索相似组件（React）
+find src/components -name "*.tsx" | xargs grep -l "相关关键词"
+
+# 搜索工具函数
+find src/utils -name "*.js" -o -name "*.ts" | xargs grep -l "函数名"
+
+# 搜索样式定义
+find src -name "*.scss" -o -name "*.less" | xargs grep -l "样式类名"
+
+# 搜索 API 接口（Egg）
+find app/controller -name "*.js" | xargs grep -l "路径关键词"
+```
